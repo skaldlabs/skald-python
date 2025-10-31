@@ -10,7 +10,7 @@ from typing_extensions import NotRequired
 
 # Type aliases for enums
 IdType = Literal["memo_uuid", "reference_id"]
-SearchMethod = Literal["chunk_vector_search", "title_contains", "title_startswith"]
+SearchMethod = Literal["chunk_semantic_search"]
 FilterOperator = Literal["eq", "neq", "contains", "startswith", "endswith", "in", "not_in"]
 FilterType = Literal["native_field", "custom_metadata"]
 
@@ -70,14 +70,6 @@ class ChatRequest(TypedDict):
     """Request parameters for chat operations."""
 
     query: str
-    filters: NotRequired[List[Filter]]
-
-
-class GenerateDocRequest(TypedDict):
-    """Request parameters for document generation."""
-
-    prompt: str
-    rules: NotRequired[str]
     filters: NotRequired[List[Filter]]
 
 
@@ -163,21 +155,6 @@ class ChatResponse(TypedDict):
 
 class ChatStreamEvent(TypedDict):
     """Event from streaming chat operations."""
-
-    type: Literal["token", "done"]
-    content: NotRequired[str]
-
-
-class GenerateDocResponse(TypedDict):
-    """Response from document generation."""
-
-    ok: bool
-    response: str
-    intermediate_steps: List[Any]
-
-
-class GenerateDocStreamEvent(TypedDict):
-    """Event from streaming document generation."""
 
     type: Literal["token", "done"]
     content: NotRequired[str]
