@@ -15,9 +15,6 @@ from skald_sdk.types import (
     ChatResponse,
     ChatStreamEvent,
     CreateMemoResponse,
-    GenerateDocRequest,
-    GenerateDocResponse,
-    GenerateDocStreamEvent,
     IdType,
     ListMemosParams,
     ListMemosResponse,
@@ -35,7 +32,7 @@ class Skald:
     Official Python SDK for Skald - The AI-powered knowledge management platform.
 
     This SDK provides methods to create, read, update, and delete memos, as well as
-    perform semantic search, chat with your knowledge base, and generate documents.
+    perform semantic search and chat with your knowledge base.
 
     Args:
         api_key: Your Skald API key for authentication
@@ -282,7 +279,7 @@ class Skald:
 
     async def search(self, search_params: SearchRequest) -> SearchResponse:
         """
-        Search your knowledge base using various methods.
+        Search your knowledge base using semantic search.
 
         Args:
             search_params: Search parameters including query, method, and optional filters
@@ -296,7 +293,7 @@ class Skald:
         Example:
             >>> results = await skald.search({
             ...     "query": "quarterly goals",
-            ...     "search_method": "chunk_vector_search",
+            ...     "search_method": "chunk_semantic_search",
             ...     "limit": 10,
             ...     "filters": [{
             ...         "field": "source",
@@ -309,17 +306,17 @@ class Skald:
         response = await self._request("POST", "/api/v1/search", json_data=search_params)
         return response.json()
 
-    async def chat(self, chat_params: ChatRequest) -> ChatResponse:
+    async def chat(self, chat_params: ChatRequest) -> str:
         """
         Chat with your knowledge base using natural language.
 
-        Returns a complete response with citations in [[N]] format.
+        Returns a response string with citations in [[N]] format.
 
         Args:
             chat_params: Chat parameters including query and optional filters
 
         Returns:
-            Chat response with citations and intermediate steps
+            Response text with citations
 
         Raises:
             Exception: If the API request fails
@@ -334,12 +331,13 @@ class Skald:
             ...         "filter_type": "native_field"
             ...     }]
             ... })
-            >>> print(response["response"])
+            >>> print(response)
         """
         data = dict(chat_params)
         data["stream"] = False
         response = await self._request("POST", "/api/v1/chat", json_data=data)
-        return response.json()
+        json_response: ChatResponse = response.json()
+        return json_response["response"]
 
     async def streamed_chat(
         self, chat_params: ChatRequest
@@ -403,94 +401,3 @@ class Skald:
                             # Skip invalid JSON
                             continue
 
-    async def generate_doc(
-        self, generate_params: GenerateDocRequest
-    ) -> GenerateDocResponse:
-        """
-        Generate a document based on your knowledge base.
-
-        Returns a complete document with citations in [[N]] format.
-
-        Args:
-            generate_params: Generation parameters including prompt, optional rules, and filters
-
-        Returns:
-            Generated document response with citations
-
-        Raises:
-            Exception: If the API request fails
-
-        Example:
-            >>> response = await skald.generate_doc({
-            ...     "prompt": "Create a PRD for a mobile app",
-            ...     "rules": "Use formal language. Include: Overview, Requirements, Timeline"
-            ... })
-            >>> print(response["response"])
-        """
-        data = dict(generate_params)
-        data["stream"] = False
-        response = await self._request("POST", "/api/v1/generate", json_data=data)
-        return response.json()
-
-    async def streamed_generate_doc(
-        self, generate_params: GenerateDocRequest
-    ) -> AsyncIterator[GenerateDocStreamEvent]:
-        """
-        Generate a document with streaming for real-time generation.
-
-        Yields token events as they're generated, followed by a done event.
-
-        Args:
-            generate_params: Generation parameters including prompt, optional rules, and filters
-
-        Yields:
-            Stream events with type 'token' (contains content) or 'done'
-
-        Raises:
-            Exception: If the API request fails
-
-        Example:
-            >>> async for event in skald.streamed_generate_doc({
-            ...     "prompt": "Write a technical spec",
-            ...     "rules": "Include Architecture and Security sections"
-            ... }):
-            ...     if event["type"] == "token":
-            ...         print(event["content"], end="", flush=True)
-        """
-        data = dict(generate_params)
-        data["stream"] = True
-
-        url = f"{self._base_url}/api/v1/generate"
-        async with self._client.stream(
-            "POST",
-            url,
-            json=data,
-        ) as response:
-            if not response.is_success:
-                error_text = await response.aread()
-                raise Exception(
-                    f"Skald API error ({response.status_code}): {error_text.decode()}"
-                )
-
-            buffer = ""
-            async for chunk in response.aiter_bytes():
-                buffer += chunk.decode("utf-8")
-                lines = buffer.split("\n")
-                buffer = lines.pop()  # Keep incomplete line in buffer
-
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    if line.startswith(": ping"):
-                        continue
-                    if line.startswith("data: "):
-                        json_str = line[6:]  # Remove "data: " prefix
-                        try:
-                            event = json.loads(json_str)
-                            yield event
-                            if event.get("type") == "done":
-                                return
-                        except json.JSONDecodeError:
-                            # Skip invalid JSON
-                            continue
