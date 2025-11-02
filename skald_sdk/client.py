@@ -293,7 +293,6 @@ class Skald:
         Example:
             >>> results = await skald.search({
             ...     "query": "quarterly goals",
-            ...     "search_method": "chunk_semantic_search",
             ...     "limit": 10,
             ...     "filters": [{
             ...         "field": "source",

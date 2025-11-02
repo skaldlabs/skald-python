@@ -429,16 +429,18 @@ class TestSearch:
         mock_response_data = {
             "results": [
                 {
-                    "uuid": "uuid-1",
-                    "title": "Result 1",
-                    "summary": "Summary 1",
+                    "memo_uuid": "memo-1",
+                    "chunk_uuid": "chunk-1",
+                    "memo_title": "Result 1",
+                    "memo_summary": "Summary 1",
                     "content_snippet": "Snippet 1",
                     "distance": 0.5,
                 },
-                {
-                    "uuid": "uuid-2",
-                    "title": "Result 2",
-                    "summary": "Summary 2",
+                {   
+                    "memo_uuid": "memo-2",
+                    "chunk_uuid": "chunk-2",
+                    "memo_title": "Result 2",
+                    "memo_summary": "Summary 2",
                     "content_snippet": "Snippet 2",
                     "distance": 0.7,
                 },
@@ -455,14 +457,12 @@ class TestSearch:
 
         result = await skald_client.search({
             "query": "test query",
-            "search_method": "chunk_semantic_search",
             "limit": 10,
         })
 
         assert result == mock_response_data
         call_args = skald_client._client.request.call_args
         assert call_args[1]["json"]["query"] == "test query"
-        assert call_args[1]["json"]["search_method"] == "chunk_semantic_search"
 
     async def test_search_with_filters(
         self, skald_client: Skald, mocker: MockerFixture
@@ -478,7 +478,6 @@ class TestSearch:
 
         await skald_client.search({
             "query": "test",
-            "search_method": "chunk_semantic_search",
             "filters": [
                 {
                     "field": "source",

@@ -29,7 +29,6 @@ async def main():
         # Search your knowledge base
         results = await skald.search({
             "query": "quarterly goals",
-            "search_method": "chunk_vector_search",
             "limit": 10
         })
 
@@ -119,21 +118,18 @@ await skald.delete_memo("550e8400-e29b-41d4-a716-446655440000")
 # Semantic vector search
 results = await skald.search({
     "query": "machine learning models",
-    "search_method": "chunk_vector_search",
     "limit": 10
 })
 
 # Text-based search
 results = await skald.search({
     "query": "python",
-    "search_method": "title_contains",
     "limit": 20
 })
 
 # Search with filters
 results = await skald.search({
     "query": "api documentation",
-    "search_method": "chunk_vector_search",
     "limit": 10,
     "filters": [
         {

@@ -61,7 +61,6 @@ class SearchRequest(TypedDict):
     """Request parameters for search operations."""
 
     query: str
-    search_method: SearchMethod
     limit: NotRequired[int]
     filters: NotRequired[List[Filter]]
 
@@ -132,9 +131,10 @@ class ListMemosResponse(TypedDict):
 class SearchResult(TypedDict):
     """A single search result."""
 
-    uuid: str
-    title: str
-    summary: str
+    memo_uuid: str
+    chunk_uuid: str
+    memo_title: str
+    memo_summary: str
     content_snippet: str
     distance: Optional[float]
 

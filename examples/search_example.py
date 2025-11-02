@@ -20,7 +20,6 @@ async def main() -> None:
         print("=== Semantic Vector Search ===")
         results = await skald.search({
             "query": "machine learning and AI",
-            "search_method": "chunk_vector_search",
             "limit": 5
         })
 
@@ -34,7 +33,6 @@ async def main() -> None:
         print("\n=== Title Contains Search ===")
         results = await skald.search({
             "query": "python",
-            "search_method": "title_contains",
             "limit": 10
         })
 
@@ -45,7 +43,6 @@ async def main() -> None:
         print("\n=== Search with Filters ===")
         results = await skald.search({
             "query": "documentation",
-            "search_method": "chunk_vector_search",
             "limit": 5,
             "filters": [
                 {
@@ -64,7 +61,6 @@ async def main() -> None:
         print("\n=== Search with Multiple Filters ===")
         results = await skald.search({
             "query": "api",
-            "search_method": "chunk_vector_search",
             "limit": 10,
             "filters": [
                 {
