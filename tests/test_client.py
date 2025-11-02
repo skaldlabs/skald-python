@@ -14,7 +14,6 @@ from skald_sdk import Skald
 from skald_sdk.types import (
     ChatStreamEvent,
     CreateMemoResponse,
-    GenerateDocStreamEvent,
     ListMemosResponse,
     Memo,
     SearchResponse,
@@ -430,16 +429,18 @@ class TestSearch:
         mock_response_data = {
             "results": [
                 {
-                    "uuid": "uuid-1",
-                    "title": "Result 1",
-                    "summary": "Summary 1",
+                    "memo_uuid": "memo-1",
+                    "chunk_uuid": "chunk-1",
+                    "memo_title": "Result 1",
+                    "memo_summary": "Summary 1",
                     "content_snippet": "Snippet 1",
                     "distance": 0.5,
                 },
-                {
-                    "uuid": "uuid-2",
-                    "title": "Result 2",
-                    "summary": "Summary 2",
+                {   
+                    "memo_uuid": "memo-2",
+                    "chunk_uuid": "chunk-2",
+                    "memo_title": "Result 2",
+                    "memo_summary": "Summary 2",
                     "content_snippet": "Snippet 2",
                     "distance": 0.7,
                 },
@@ -456,14 +457,12 @@ class TestSearch:
 
         result = await skald_client.search({
             "query": "test query",
-            "search_method": "chunk_vector_search",
             "limit": 10,
         })
 
         assert result == mock_response_data
         call_args = skald_client._client.request.call_args
         assert call_args[1]["json"]["query"] == "test query"
-        assert call_args[1]["json"]["search_method"] == "chunk_vector_search"
 
     async def test_search_with_filters(
         self, skald_client: Skald, mocker: MockerFixture
@@ -479,7 +478,6 @@ class TestSearch:
 
         await skald_client.search({
             "query": "test",
-            "search_method": "title_contains",
             "filters": [
                 {
                     "field": "source",
@@ -518,7 +516,7 @@ class TestChat:
 
         result = await skald_client.chat({"query": "What is the answer?"})
 
-        assert result == mock_response_data
+        assert result == "This is the answer [[1]]"
         call_args = skald_client._client.request.call_args
         assert call_args[1]["json"]["query"] == "What is the answer?"
         assert call_args[1]["json"]["stream"] is False
@@ -621,106 +619,6 @@ class TestChat:
 
         # Should only have 3 events (ping is skipped)
         assert len(events) == 3
-
-
-class TestGenerateDoc:
-    """Tests for document generation."""
-
-    async def test_generate_doc_non_streaming(
-        self, skald_client: Skald, mocker: MockerFixture
-    ) -> None:
-        """Test non-streaming document generation."""
-        mock_response_data = {
-            "ok": True,
-            "response": "Generated document content [[1]]",
-            "intermediate_steps": [],
-        }
-
-        mock_response = mocker.Mock()
-        mock_response.is_success = True
-        mock_response.json.return_value = mock_response_data
-
-        mocker.patch.object(
-            skald_client._client, "request", return_value=mock_response
-        )
-
-        result = await skald_client.generate_doc({
-            "prompt": "Create a PRD",
-            "rules": "Use formal language",
-        })
-
-        assert result == mock_response_data
-        call_args = skald_client._client.request.call_args
-        assert call_args[1]["json"]["prompt"] == "Create a PRD"
-        assert call_args[1]["json"]["rules"] == "Use formal language"
-        assert call_args[1]["json"]["stream"] is False
-
-    async def test_streamed_generate_doc(
-        self, skald_client: Skald, mocker: MockerFixture
-    ) -> None:
-        """Test streaming document generation."""
-        stream_data = [
-            b'data: {"type":"token","content":"# Document"}\n',
-            b'data: {"type":"token","content":"\\n\\nContent"}\n',
-            b'data: {"type":"done"}\n',
-        ]
-
-        mock_response = mocker.Mock()
-        mock_response.is_success = True
-
-        async def mock_aiter_bytes():
-            for chunk in stream_data:
-                yield chunk
-
-        mock_response.aiter_bytes = mock_aiter_bytes
-
-        mock_stream = mocker.MagicMock()
-        mock_stream.__aenter__.return_value = mock_response
-        mock_stream.__aexit__.return_value = None
-
-        mocker.patch.object(skald_client._client, "stream", return_value=mock_stream)
-
-        events = []
-        async for event in skald_client.streamed_generate_doc({"prompt": "test"}):
-            events.append(event)
-
-        assert len(events) == 3
-        assert events[0]["type"] == "token"
-        assert events[2]["type"] == "done"
-
-    async def test_streamed_generate_doc_with_incomplete_lines(
-        self, skald_client: Skald, mocker: MockerFixture
-    ) -> None:
-        """Test streaming handles incomplete lines correctly."""
-        # Split a JSON event across multiple chunks
-        stream_data = [
-            b'data: {"type":"token",',
-            b'"content":"Hello"}\n',
-            b'data: {"type":"done"}\n',
-        ]
-
-        mock_response = mocker.Mock()
-        mock_response.is_success = True
-
-        async def mock_aiter_bytes():
-            for chunk in stream_data:
-                yield chunk
-
-        mock_response.aiter_bytes = mock_aiter_bytes
-
-        mock_stream = mocker.MagicMock()
-        mock_stream.__aenter__.return_value = mock_response
-        mock_stream.__aexit__.return_value = None
-
-        mocker.patch.object(skald_client._client, "stream", return_value=mock_stream)
-
-        events = []
-        async for event in skald_client.streamed_generate_doc({"prompt": "test"}):
-            events.append(event)
-
-        assert len(events) == 2
-        assert events[0] == {"type": "token", "content": "Hello"}
-        assert events[1] == {"type": "done"}
 
 
 class TestErrorHandling:

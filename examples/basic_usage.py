@@ -35,7 +35,8 @@ async def main() -> None:
         list_response = await skald.list_memos({"page": 1, "page_size": 5})
         print(f"Total memos: {list_response['count']}")
         for memo in list_response["results"]:
-            print(f"- {memo['title']}: {memo['summary'][:100]}...")
+            summary = memo['summary'] or ''
+            print(f"- {memo['title']}: {summary[:100]}...")
 
         if list_response["results"]:
             first_memo = list_response["results"][0]
@@ -45,7 +46,7 @@ async def main() -> None:
             memo = await skald.get_memo(memo_id)
             print(f"Title: {memo['title']}")
             print(f"Created: {memo['created_at']}")
-            print(f"Summary: {memo['summary']}")
+            print(f"Summary: {summary}")
             print(f"Tags: {[tag['tag'] for tag in memo['tags']]}")
 
             print(f"\n=== Updating memo {memo_id} ===")
