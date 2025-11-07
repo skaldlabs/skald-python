@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Remove legacy documentation for document generation methods
+
 # 0.3.0
 
 - Added `create_memo_from_file` method for document uploads (PDF, DOC, DOCX, PPTX)

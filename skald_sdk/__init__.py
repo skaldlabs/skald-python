@@ -30,7 +30,7 @@ from skald_sdk.types import (
     FilterType,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __all__ = [
     "Skald",
     "MemoData",
