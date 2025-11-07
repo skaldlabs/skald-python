@@ -245,34 +245,6 @@ response = await skald.chat({
     ]
 })
 ```
-
-### Document Generation
-
-```python
-# Generate a complete document
-response = await skald.generate_doc({
-    "prompt": "Create a comprehensive PRD for a mobile app",
-    "rules": "Use formal language. Include: Overview, Requirements, Timeline, Success Metrics"
-})
-print(response["response"])
-
-# Streaming document generation
-async for event in skald.streamed_generate_doc({
-    "prompt": "Write a technical specification",
-    "rules": "Include Architecture, Security, and Testing sections",
-    "filters": [
-        {
-            "field": "tags",
-            "operator": "in",
-            "value": ["technical"],
-            "filter_type": "native_field"
-        }
-    ]
-}):
-    if event["type"] == "token":
-        print(event["content"], end="", flush=True)
-```
-
 ## Search Methods
 
 - **`chunk_vector_search`**: Semantic search using AI embeddings (best for finding conceptually similar content)
@@ -321,8 +293,6 @@ Main client class for interacting with Skald.
 - `async search(search_params: SearchRequest) -> SearchResponse`
 - `async chat(chat_params: ChatRequest) -> ChatResponse`
 - `async streamed_chat(chat_params: ChatRequest) -> AsyncIterator[ChatStreamEvent]`
-- `async generate_doc(generate_params: GenerateDocRequest) -> GenerateDocResponse`
-- `async streamed_generate_doc(generate_params: GenerateDocRequest) -> AsyncIterator[GenerateDocStreamEvent]`
 
 ## Type Definitions
 

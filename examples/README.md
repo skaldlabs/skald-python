@@ -51,18 +51,6 @@ Demonstrates chat functionality:
 python chat_example.py
 ```
 
-### generate_doc_example.py
-Shows document generation features:
-- Non-streaming document generation
-- Streaming generation for real-time output
-- Using rules to guide document style and structure
-- Filtering source memos for document creation
-- Generating various document types (PRDs, specs, reports)
-
-```bash
-python generate_doc_example.py
-```
-
 ## Tips
 
 - All examples use async/await syntax. Make sure you're running Python 3.8+
