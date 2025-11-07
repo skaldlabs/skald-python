@@ -55,7 +55,7 @@ async def main() -> None:
             {
                 "title": "Q4 Roadmap Presentation",
                 "source": "Product Team",
-                "reference_id": "ROADMAP-Q4-2024",
+                "reference_id": "my-pdf",
                 "tags": ["roadmap", "product", "q4"],
                 "metadata": {
                     "quarter": "Q4",
@@ -81,7 +81,7 @@ async def main() -> None:
         # Check status using reference_id
         print("\n=== Check Status by Reference ID ===")
         status = await skald.check_memo_status(
-            "ROADMAP-Q4-2024",
+            "my-pdf",
             id_type="reference_id"
         )
         print(f"Status: {status['status']}")
