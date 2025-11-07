@@ -13,6 +13,7 @@ IdType = Literal["memo_uuid", "reference_id"]
 SearchMethod = Literal["chunk_semantic_search"]
 FilterOperator = Literal["eq", "neq", "contains", "startswith", "endswith", "in", "not_in"]
 FilterType = Literal["native_field", "custom_metadata"]
+MemoStatus = Literal["processing", "processed", "error"]
 
 
 # Input Types
@@ -28,6 +29,17 @@ class MemoData(TypedDict):
     tags: NotRequired[List[str]]
     source: NotRequired[str]
     expiration_date: NotRequired[str]
+
+
+class MemoFileData(TypedDict, total=False):
+    """Optional data for creating a memo from a file upload."""
+
+    title: str
+    source: str
+    reference_id: str
+    expiration_date: str
+    tags: List[str]
+    metadata: Dict[str, Any]
 
 
 class UpdateMemoData(TypedDict, total=False):
@@ -78,13 +90,23 @@ class ChatRequest(TypedDict):
 class CreateMemoResponse(TypedDict):
     """Response from creating a memo."""
 
-    ok: bool
+    memo_uuid: str
 
 
 class UpdateMemoResponse(TypedDict):
     """Response from updating a memo."""
 
     ok: bool
+
+
+class MemoStatusResponse(TypedDict):
+    """Response from checking memo status."""
+
+    memo_uuid: str
+    status: MemoStatus
+    processing_started_at: Optional[str]
+    processing_completed_at: Optional[str]
+    error_reason: Optional[str]
 
 
 class Memo(TypedDict):

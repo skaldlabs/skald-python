@@ -44,6 +44,8 @@ asyncio.run(main())
 ## Features
 
 - **Full CRUD Operations**: Create, read, update, and delete memos
+- **Document Upload**: Upload PDF, DOC, DOCX, PPTX files (up to 100MB)
+- **Status Tracking**: Check processing status of uploaded documents
 - **Semantic Search**: Vector-based search for finding relevant content
 - **AI Chat**: Natural language Q&A over your knowledge base
 - **Document Generation**: AI-powered document creation from your memos
@@ -56,14 +58,15 @@ asyncio.run(main())
 ### Creating Memos
 
 ```python
-# Basic memo
-await skald.create_memo({
+# Basic memo (returns memo_uuid)
+response = await skald.create_memo({
     "title": "Product Requirements",
     "content": "We need to build a mobile app with..."
 })
+print(f"Created memo: {response['memo_uuid']}")
 
 # With metadata and tags
-await skald.create_memo({
+response = await skald.create_memo({
     "title": "Technical Spec",
     "content": "Architecture overview...",
     "metadata": {
@@ -74,6 +77,19 @@ await skald.create_memo({
     "source": "confluence",
     "reference_id": "TECH-123"
 })
+
+# Upload a document file
+response = await skald.create_memo_from_file(
+    "/path/to/document.pdf",
+    {
+        "title": "Q4 Roadmap",
+        "source": "Product Team",
+        "reference_id": "ROADMAP-Q4-2024",
+        "tags": ["roadmap", "product"],
+        "metadata": {"quarter": "Q4", "year": "2024"}
+    }
+)
+print(f"Uploaded document: {response['memo_uuid']}")
 ```
 
 ### Retrieving Memos
@@ -93,6 +109,52 @@ response = await skald.list_memos({
 
 for memo in response["results"]:
     print(f"{memo['title']}: {memo['summary']}")
+
+# Check memo processing status
+status = await skald.check_memo_status("550e8400-e29b-41d4-a716-446655440000")
+if status["status"] == "processed":
+    print("Memo is ready!")
+elif status["status"] == "processing":
+    print("Still processing...")
+elif status["status"] == "error":
+    print(f"Error: {status['error_reason']}")
+```
+
+### Document Upload and Status
+
+```python
+# Upload a document (PDF, DOC, DOCX, PPTX - max 100MB)
+response = await skald.create_memo_from_file(
+    "/path/to/document.pdf",
+    {
+        "title": "Q4 Roadmap Presentation",
+        "source": "Product Team",
+        "reference_id": "ROADMAP-Q4-2024",
+        "tags": ["roadmap", "product", "q4"],
+        "metadata": {"quarter": "Q4", "year": "2024", "priority": "high"},
+        "expiration_date": "2024-12-31T23:59:59Z"
+    }
+)
+memo_uuid = response["memo_uuid"]
+
+# Check processing status
+status = await skald.check_memo_status(memo_uuid)
+print(f"Status: {status['status']}")  # "processing", "processed", or "error"
+
+# Poll until processing is complete
+import asyncio
+while True:
+    status = await skald.check_memo_status(memo_uuid)
+    if status["status"] == "processed":
+        print("Processing complete!")
+        break
+    elif status["status"] == "error":
+        print(f"Error: {status['error_reason']}")
+        break
+    await asyncio.sleep(2)
+
+# Check status by reference ID
+status = await skald.check_memo_status("ROADMAP-Q4-2024", id_type="reference_id")
 ```
 
 ### Updating and Deleting Memos
@@ -247,11 +309,13 @@ Main client class for interacting with Skald.
 **Methods:**
 
 #### CRUD Operations
-- `async create_memo(memo_data: MemoData) -> CreateMemoResponse`
+- `async create_memo(memo_data: MemoData) -> CreateMemoResponse` - Returns `{"memo_uuid": str}`
+- `async create_memo_from_file(file_path: str, memo_data: Optional[MemoFileData] = None) -> CreateMemoResponse` - Upload a document file
 - `async get_memo(memo_id: str, id_type: IdType = "memo_uuid") -> Memo`
 - `async list_memos(params: Optional[ListMemosParams] = None) -> ListMemosResponse`
 - `async update_memo(memo_id: str, update_data: UpdateMemoData, id_type: IdType = "memo_uuid") -> UpdateMemoResponse`
 - `async delete_memo(memo_id: str, id_type: IdType = "memo_uuid") -> None`
+- `async check_memo_status(memo_id: str, id_type: IdType = "memo_uuid") -> MemoStatusResponse` - Check processing status
 
 #### Search and Query
 - `async search(search_params: SearchRequest) -> SearchResponse`
@@ -267,10 +331,13 @@ The SDK includes comprehensive type definitions for all API operations. Import t
 ```python
 from skald_sdk.types import (
     MemoData,
+    MemoFileData,
     UpdateMemoData,
     SearchRequest,
     ChatRequest,
     Filter,
+    MemoStatus,
+    MemoStatusResponse,
     SearchMethod,
     FilterOperator,
     FilterType,

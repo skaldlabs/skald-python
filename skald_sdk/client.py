@@ -20,6 +20,8 @@ from skald_sdk.types import (
     ListMemosResponse,
     Memo,
     MemoData,
+    MemoFileData,
+    MemoStatusResponse,
     SearchRequest,
     SearchResponse,
     UpdateMemoData,
@@ -138,6 +140,68 @@ class Skald:
 
         response = await self._request("POST", "/api/v1/memo", json_data=data)
         return response.json()
+
+    async def create_memo_from_file(
+        self,
+        file_path: str,
+        memo_data: Optional[MemoFileData] = None
+    ) -> CreateMemoResponse:
+        """
+        Create a new memo from a file upload.
+
+        Uploads a document (PDF, DOC, DOCX, PPTX, max 100MB) and creates a memo from it.
+
+        Args:
+            file_path: Path to the file to upload
+            memo_data: Optional metadata including title, source, reference_id, etc.
+
+        Returns:
+            Response indicating success with the created memo UUID
+
+        Raises:
+            Exception: If the API request fails or file cannot be read
+
+        Example:
+            >>> response = await skald.create_memo_from_file(
+            ...     "/path/to/document.pdf",
+            ...     {
+            ...         "title": "Q4 Roadmap Presentation",
+            ...         "source": "Product Team",
+            ...         "reference_id": "ROADMAP-Q4-2024",
+            ...         "tags": ["roadmap", "product"],
+            ...         "metadata": {"quarter": "Q4", "year": "2024"}
+            ...     }
+            ... )
+        """
+        url = f"{self._base_url}/api/v1/memo"
+
+        # Prepare the multipart form data
+        files = {"file": open(file_path, "rb")}
+        data = {}
+
+        if memo_data:
+            # Add optional string fields directly
+            for field in ["title", "source", "reference_id", "expiration_date"]:
+                if field in memo_data:
+                    data[field] = memo_data[field]  # type: ignore
+
+            # JSON-encode tags and metadata
+            if "tags" in memo_data:
+                data["tags"] = json.dumps(memo_data["tags"])
+            if "metadata" in memo_data:
+                data["metadata"] = json.dumps(memo_data["metadata"])
+
+        try:
+            response = await self._client.post(url, files=files, data=data)
+
+            if not response.is_success:
+                error_text = response.text
+                raise Exception(f"Skald API error ({response.status_code}): {error_text}")
+
+            return response.json()
+        finally:
+            # Ensure file is closed
+            files["file"].close()
 
     async def get_memo(
         self, memo_id: str, id_type: IdType = "memo_uuid"
@@ -274,6 +338,44 @@ class Skald:
             endpoint += f"?id_type={id_type}"
 
         await self._request("DELETE", endpoint)
+
+    async def check_memo_status(
+        self, memo_id: str, id_type: IdType = "memo_uuid"
+    ) -> MemoStatusResponse:
+        """
+        Check the processing status of a memo.
+
+        Args:
+            memo_id: The memo's UUID or reference ID
+            id_type: Type of ID provided - 'memo_uuid' or 'reference_id' (default: 'memo_uuid')
+
+        Returns:
+            Status information including processing state and timestamps
+
+        Raises:
+            Exception: If the API request fails or ID type is invalid
+
+        Example:
+            >>> status = await skald.check_memo_status("550e8400-e29b-41d4-a716-446655440000")
+            >>> if status["status"] == "processed":
+            ...     print("Memo processing completed!")
+            >>> elif status["status"] == "error":
+            ...     print(f"Processing failed: {status['error_reason']}")
+        """
+        # Validate id_type
+        if id_type not in ("memo_uuid", "reference_id"):
+            raise ValueError(f"Invalid id_type: {id_type}")
+
+        # URL encode the memo_id
+        encoded_id = quote(memo_id, safe="")
+        endpoint = f"/api/v1/memo/{encoded_id}/status"
+
+        # Only add id_type query param if not memo_uuid
+        if id_type != "memo_uuid":
+            endpoint += f"?id_type={id_type}"
+
+        response = await self._request("GET", endpoint)
+        return response.json()
 
     # Search and Query Operations
 
