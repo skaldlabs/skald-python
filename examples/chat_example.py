@@ -18,22 +18,23 @@ async def main() -> None:
         raise ValueError("Please set SKALD_API_KEY environment variable")
 
     async with Skald(api_key) as skald:
-        # print("=== Non-Streaming Chat ===")
-        # response = await skald.chat({
-        #     "query": "What are the main topics covered in my knowledge base?"
-        # })
+        print("=== Non-Streaming Chat ===")
+        print("Question: What are our technical architecture principles?")
+        response = await skald.chat({
+            "query": "What are our technical architecture principles?"
+        })
 
-        # print(f"Response: {response['response']}")
-        # print(f"\nOK: {response['ok']}")
+        print(f"Response: {response['response']}")
+        print(f"\nOK: {response['ok']}")
 
-        # print("\n=== Streaming Chat ===")
-        # print("Question: What are our technical architecture principles?")
-        # print("Answer: ", end="", flush=True)
+        print("\n=== Streaming Chat ===")
+        print("Question: What are our technical architecture principles?")
+        print("Answer: ", end="", flush=True)
 
         start_time = time.time()
         first_token_time = None
         async for event in skald.streamed_chat({
-            "query": "what is the importance of dogfooding according to marcus hyett?"
+            "query": "What are our technical architecture principles?"
         }):
             if event["type"] == "token":
                 if first_token_time is None:
@@ -45,46 +46,46 @@ async def main() -> None:
         print(f"Time taken: {end_time - start_time} seconds")
         print(f"First token time: {first_token_time - start_time} seconds")
 
-        # print("\n=== Chat with Filters ===")
-        # response = await skald.chat({
-        #     "query": "What were the key decisions made?",
-        #     "filters": [
-        #         {
-        #             "field": "tags",
-        #             "operator": "in",
-        #             "value": ["meeting", "decision"],
-        #             "filter_type": "native_field"
-        #         }
-        #     ]
-        # })
+        print("\n=== Chat with Filters ===")
+        response = await skald.chat({
+            "query": "What were the key decisions made?",
+            "filters": [
+                {
+                    "field": "tags",
+                    "operator": "in",
+                    "value": ["meeting", "decision"],
+                    "filter_type": "native_field"
+                }
+            ]
+        })
 
-        # print(f"Response: {response['response']}")
+        print(f"Response: {response['response']}")
 
-        # print("\n=== Streaming Chat with Filters ===")
-        # print("Question: Summarize recent product discussions")
-        # print("Answer: ", end="", flush=True)
+        print("\n=== Streaming Chat with Filters ===")
+        print("Question: Summarize recent product discussions")
+        print("Answer: ", end="", flush=True)
 
-        # async for event in skald.streamed_chat({
-        #     "query": "Summarize recent product discussions",
-        #     "filters": [
-        #         {
-        #             "field": "source",
-        #             "operator": "eq",
-        #             "value": "notion",
-        #             "filter_type": "native_field"
-        #         },
-        #         {
-        #             "field": "category",
-        #             "operator": "eq",
-        #             "value": "product",
-        #             "filter_type": "custom_metadata"
-        #         }
-        #     ]
-        # }):
-        #     if event["type"] == "token":
-        #         print(event["content"], end="", flush=True)
-        #     elif event["type"] == "done":
-        #         print("\n[Stream completed]")
+        async for event in skald.streamed_chat({
+            "query": "Summarize recent product discussions",
+            "filters": [
+                {
+                    "field": "source",
+                    "operator": "eq",
+                    "value": "notion",
+                    "filter_type": "native_field"
+                },
+                {
+                    "field": "category",
+                    "operator": "eq",
+                    "value": "product",
+                    "filter_type": "custom_metadata"
+                }
+            ]
+        }):
+            if event["type"] == "token":
+                print(event["content"], end="", flush=True)
+            elif event["type"] == "done":
+                print("\n[Stream completed]")
 
 
 if __name__ == "__main__":
