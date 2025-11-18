@@ -10,10 +10,10 @@ from typing_extensions import NotRequired
 
 # Type aliases for enums
 IdType = Literal["memo_uuid", "reference_id"]
-SearchMethod = Literal["chunk_semantic_search"]
 FilterOperator = Literal["eq", "neq", "contains", "startswith", "endswith", "in", "not_in"]
 FilterType = Literal["native_field", "custom_metadata"]
 MemoStatus = Literal["processing", "processed", "error"]
+LLMProvider = Literal["openai", "anthropic", "groq"]
 
 
 # Input Types
@@ -69,6 +69,42 @@ class Filter(TypedDict):
     filter_type: FilterType
 
 
+class QueryRewriteConfig(TypedDict):
+    """Configuration for query rewriting in RAG."""
+
+    enabled: bool
+
+
+class VectorSearchConfig(TypedDict):
+    """Configuration for vector search in RAG."""
+
+    top_k: int  # 1-200
+    similarity_threshold: float  # 0.0-1.0
+
+
+class RerankingConfig(TypedDict):
+    """Configuration for reranking in RAG."""
+
+    enabled: bool
+    top_k: int  # 1-100
+
+
+class ReferencesConfig(TypedDict):
+    """Configuration for references/citations in RAG."""
+
+    enabled: bool
+
+
+class RAGConfig(TypedDict, total=False):
+    """Advanced RAG (Retrieval-Augmented Generation) configuration."""
+
+    llm_provider: LLMProvider
+    query_rewrite: QueryRewriteConfig
+    vector_search: VectorSearchConfig
+    reranking: RerankingConfig
+    references: ReferencesConfig
+
+
 class SearchRequest(TypedDict):
     """Request parameters for search operations."""
 
@@ -82,9 +118,23 @@ class ChatRequest(TypedDict):
 
     query: str
     filters: NotRequired[List[Filter]]
+    chat_id: NotRequired[str]
+    system_prompt: NotRequired[str]
+    rag_config: NotRequired[RAGConfig]
 
 
 # Output Types
+
+
+class MemoReference(TypedDict):
+    """Reference to a memo used in chat responses."""
+
+    memo_uuid: str
+    memo_title: str
+
+
+# Type alias for references dictionary
+References = Dict[str, MemoReference]
 
 
 class CreateMemoResponse(TypedDict):
@@ -173,10 +223,13 @@ class ChatResponse(TypedDict):
     ok: bool
     response: str
     intermediate_steps: List[Any]
+    chat_id: str
+    references: NotRequired[References]
 
 
 class ChatStreamEvent(TypedDict):
     """Event from streaming chat operations."""
 
-    type: Literal["token", "done"]
+    type: Literal["token", "done", "references"]
     content: NotRequired[str]
+    chat_id: NotRequired[str]

@@ -25,7 +25,8 @@ async def main() -> None:
         })
 
         print(f"Response: {response['response']}")
-        print(f"\nOK: {response['ok']}")
+        print(f"OK: {response['ok']}")
+        print(f"Chat ID: {response['chat_id']}")
 
         print("\n=== Streaming Chat ===")
         print("Question: What are our technical architecture principles?")
@@ -85,7 +86,14 @@ async def main() -> None:
             if event["type"] == "token":
                 print(event["content"], end="", flush=True)
             elif event["type"] == "done":
-                print("\n[Stream completed]")
+                print(f"\n[Stream completed - Chat ID: {event.get('chat_id')}]")
+
+        print("\n=== Chat with System Prompt ===")
+        response = await skald.chat({
+            "query": "What is our main product?",
+            "system_prompt": "You are a technical expert. Provide concise, precise answers."
+        })
+        print(f"Response: {response['response']}")
 
 
 if __name__ == "__main__":

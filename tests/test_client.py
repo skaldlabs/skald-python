@@ -385,6 +385,7 @@ class TestDeleteMemo:
         """Test deleting a memo by UUID."""
         mock_response = mocker.Mock()
         mock_response.is_success = True
+        mock_response.json.return_value = {"ok": True}
 
         mocker.patch.object(
             skald_client._client, "request", return_value=mock_response
@@ -392,7 +393,7 @@ class TestDeleteMemo:
 
         result = await skald_client.delete_memo("550e8400-e29b-41d4-a716-446655440000")
 
-        assert result is None
+        assert result == {"ok": True}
         skald_client._client.request.assert_called_once_with(
             "DELETE",
             "https://api.test.com/api/v1/memo/550e8400-e29b-41d4-a716-446655440000",
@@ -504,6 +505,7 @@ class TestChat:
             "ok": True,
             "response": "This is the answer [[1]]",
             "intermediate_steps": [],
+            "chat_id": "chat-123",
         }
 
         mock_response = mocker.Mock()
@@ -516,7 +518,10 @@ class TestChat:
 
         result = await skald_client.chat({"query": "What is the answer?"})
 
-        assert result == "This is the answer [[1]]"
+        assert result == mock_response_data
+        assert result["response"] == "This is the answer [[1]]"
+        assert result["chat_id"] == "chat-123"
+        assert result["ok"] is True
         call_args = skald_client._client.request.call_args
         assert call_args[1]["json"]["query"] == "What is the answer?"
         assert call_args[1]["json"]["stream"] is False
@@ -531,13 +536,14 @@ class TestChat:
             "ok": True,
             "response": "Answer",
             "intermediate_steps": [],
+            "chat_id": "chat-456",
         }
 
         mocker.patch.object(
             skald_client._client, "request", return_value=mock_response
         )
 
-        await skald_client.chat({
+        result = await skald_client.chat({
             "query": "test",
             "filters": [
                 {
@@ -549,8 +555,147 @@ class TestChat:
             ],
         })
 
+        assert result["chat_id"] == "chat-456"
         call_args = skald_client._client.request.call_args
         assert call_args[1]["json"]["filters"][0]["field"] == "tags"
+
+    async def test_chat_with_conversation_continuity(
+        self, skald_client: Skald, mocker: MockerFixture
+    ) -> None:
+        """Test chat with chat_id for conversation continuity."""
+        mock_response = mocker.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "ok": True,
+            "response": "Follow-up answer",
+            "intermediate_steps": [],
+            "chat_id": "existing-chat-123",
+        }
+
+        mocker.patch.object(
+            skald_client._client, "request", return_value=mock_response
+        )
+
+        result = await skald_client.chat({
+            "query": "Tell me more",
+            "chat_id": "existing-chat-123",
+        })
+
+        assert result["chat_id"] == "existing-chat-123"
+        call_args = skald_client._client.request.call_args
+        assert call_args[1]["json"]["chat_id"] == "existing-chat-123"
+
+    async def test_chat_with_system_prompt(
+        self, skald_client: Skald, mocker: MockerFixture
+    ) -> None:
+        """Test chat with custom system prompt."""
+        mock_response = mocker.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "ok": True,
+            "response": "Technical answer",
+            "intermediate_steps": [],
+            "chat_id": "chat-789",
+        }
+
+        mocker.patch.object(
+            skald_client._client, "request", return_value=mock_response
+        )
+
+        result = await skald_client.chat({
+            "query": "Explain the architecture",
+            "system_prompt": "You are a technical expert.",
+        })
+
+        assert result["response"] == "Technical answer"
+        call_args = skald_client._client.request.call_args
+        assert call_args[1]["json"]["system_prompt"] == "You are a technical expert."
+
+    async def test_chat_with_rag_config(
+        self, skald_client: Skald, mocker: MockerFixture
+    ) -> None:
+        """Test chat with RAG configuration."""
+        mock_response = mocker.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = {
+            "ok": True,
+            "response": "Optimized answer",
+            "intermediate_steps": [],
+            "chat_id": "chat-rag",
+        }
+
+        mocker.patch.object(
+            skald_client._client, "request", return_value=mock_response
+        )
+
+        result = await skald_client.chat({
+            "query": "Complex question",
+            "rag_config": {
+                "llm_provider": "anthropic",
+                "query_rewrite": {"enabled": True},
+                "vector_search": {
+                    "top_k": 100,
+                    "similarity_threshold": 0.7,
+                },
+                "reranking": {
+                    "enabled": True,
+                    "top_k": 20,
+                },
+                "references": {
+                    "enabled": True,
+                },
+            },
+        })
+
+        assert result["response"] == "Optimized answer"
+        call_args = skald_client._client.request.call_args
+        rag_config = call_args[1]["json"]["rag_config"]
+        assert rag_config["llm_provider"] == "anthropic"
+        assert rag_config["query_rewrite"]["enabled"] is True
+        assert rag_config["vector_search"]["top_k"] == 100
+        assert rag_config["reranking"]["enabled"] is True
+        assert rag_config["references"]["enabled"] is True
+
+    async def test_chat_with_references(
+        self, skald_client: Skald, mocker: MockerFixture
+    ) -> None:
+        """Test chat with references enabled."""
+        mock_response_data = {
+            "ok": True,
+            "response": "We use API keys [[1]] and OAuth [[2]]",
+            "intermediate_steps": [],
+            "chat_id": "chat-refs",
+            "references": {
+                "1": {
+                    "memo_uuid": "memo-uuid-1",
+                    "memo_title": "API Auth Guide",
+                },
+                "2": {
+                    "memo_uuid": "memo-uuid-2",
+                    "memo_title": "OAuth Implementation",
+                },
+            },
+        }
+
+        mock_response = mocker.Mock()
+        mock_response.is_success = True
+        mock_response.json.return_value = mock_response_data
+
+        mocker.patch.object(
+            skald_client._client, "request", return_value=mock_response
+        )
+
+        result = await skald_client.chat({
+            "query": "How do we authenticate?",
+            "rag_config": {
+                "references": {"enabled": True},
+            },
+        })
+
+        assert result["response"] == "We use API keys [[1]] and OAuth [[2]]"
+        assert "references" in result
+        assert result["references"]["1"]["memo_title"] == "API Auth Guide"
+        assert result["references"]["2"]["memo_title"] == "OAuth Implementation"
 
     async def test_streamed_chat(
         self, skald_client: Skald, mocker: MockerFixture
@@ -560,7 +705,7 @@ class TestChat:
         stream_data = [
             b'data: {"type":"token","content":"Hello"}\n',
             b'data: {"type":"token","content":" world"}\n',
-            b'data: {"type":"done"}\n',
+            b'data: {"type":"done","chat_id":"stream-chat-123"}\n',
         ]
 
         mock_response = mocker.Mock()
@@ -585,7 +730,52 @@ class TestChat:
         assert len(events) == 3
         assert events[0] == {"type": "token", "content": "Hello"}
         assert events[1] == {"type": "token", "content": " world"}
-        assert events[2] == {"type": "done"}
+        assert events[2] == {"type": "done", "chat_id": "stream-chat-123"}
+
+    async def test_streamed_chat_with_references(
+        self, skald_client: Skald, mocker: MockerFixture
+    ) -> None:
+        """Test streaming chat with references."""
+        # Mock streaming response with references event
+        references_json = '{"1": {"memo_uuid": "uuid-1", "memo_title": "Doc 1"}, "2": {"memo_uuid": "uuid-2", "memo_title": "Doc 2"}}'
+        # Properly escape the JSON content using json.dumps
+        escaped_content = json.dumps(references_json)
+        stream_data = [
+            b'data: {"type":"token","content":"Answer with [[1]]"}\n',
+            b'data: {"type":"token","content":" and [[2]]"}\n',
+            b'data: {"type":"references","content":' + escaped_content.encode() + b'}\n',
+            b'data: {"type":"done","chat_id":"stream-refs-456"}\n',
+        ]
+
+        mock_response = mocker.Mock()
+        mock_response.is_success = True
+
+        async def mock_aiter_bytes():
+            for chunk in stream_data:
+                yield chunk
+
+        mock_response.aiter_bytes = mock_aiter_bytes
+
+        mock_stream = mocker.MagicMock()
+        mock_stream.__aenter__.return_value = mock_response
+        mock_stream.__aexit__.return_value = None
+
+        mocker.patch.object(skald_client._client, "stream", return_value=mock_stream)
+
+        events = []
+        async for event in skald_client.streamed_chat({
+            "query": "test",
+            "rag_config": {"references": {"enabled": True}},
+        }):
+            events.append(event)
+
+        assert len(events) == 4
+        assert events[0]["type"] == "token"
+        assert events[1]["type"] == "token"
+        assert events[2]["type"] == "references"
+        assert events[2]["content"] == references_json
+        assert events[3]["type"] == "done"
+        assert events[3]["chat_id"] == "stream-refs-456"
 
     async def test_streamed_chat_skips_ping(
         self, skald_client: Skald, mocker: MockerFixture

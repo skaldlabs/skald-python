@@ -311,7 +311,7 @@ class Skald:
 
     async def delete_memo(
         self, memo_id: str, id_type: IdType = "memo_uuid"
-    ) -> None:
+    ) -> UpdateMemoResponse:
         """
         Delete a memo from your knowledge base.
 
@@ -319,11 +319,15 @@ class Skald:
             memo_id: The memo's UUID or reference ID
             id_type: Type of ID provided - 'memo_uuid' or 'reference_id' (default: 'memo_uuid')
 
+        Returns:
+            Response indicating success
+
         Raises:
             Exception: If the API request fails or ID type is invalid
 
         Example:
-            >>> await skald.delete_memo("550e8400-e29b-41d4-a716-446655440000")
+            >>> result = await skald.delete_memo("550e8400-e29b-41d4-a716-446655440000")
+            >>> print(result["ok"])  # True
         """
         # Validate id_type
         if id_type not in ("memo_uuid", "reference_id"):
@@ -337,7 +341,12 @@ class Skald:
         if id_type != "memo_uuid":
             endpoint += f"?id_type={id_type}"
 
-        await self._request("DELETE", endpoint)
+        response = await self._request("DELETE", endpoint)
+        
+        if response.status_code == 204 or not response.content:
+            return {"ok": True}
+        
+        return response.json()
 
     async def check_memo_status(
         self, memo_id: str, id_type: IdType = "memo_uuid"
@@ -407,17 +416,21 @@ class Skald:
         response = await self._request("POST", "/api/v1/search", json_data=search_params)
         return response.json()
 
-    async def chat(self, chat_params: ChatRequest) -> str:
+    async def chat(self, chat_params: ChatRequest) -> ChatResponse:
         """
         Chat with your knowledge base using natural language.
 
-        Returns a response string with citations in [[N]] format.
+        Returns a full chat response including the answer, chat_id for conversation
+        continuity, and optional references when enabled via RAG config.
 
         Args:
-            chat_params: Chat parameters including query and optional filters
+            chat_params: Chat parameters including query, optional filters, chat_id
+                        for conversation continuity, system_prompt for customization,
+                        and rag_config for advanced RAG settings
 
         Returns:
-            Response text with citations
+            ChatResponse with response text (with [[N]] citations), chat_id,
+            intermediate_steps, and optional references mapping
 
         Raises:
             Exception: If the API request fails
@@ -430,15 +443,21 @@ class Skald:
             ...         "operator": "in",
             ...         "value": ["meeting"],
             ...         "filter_type": "native_field"
-            ...     }]
+            ...     }],
+            ...     "rag_config": {
+            ...         "references": {"enabled": True}
+            ...     }
             ... })
-            >>> print(response)
+            >>> print(response["response"])
+            >>> print(f"Chat ID: {response['chat_id']}")
+            >>> if "references" in response:
+            ...     for ref_num, ref in response["references"].items():
+            ...         print(f"[{ref_num}]: {ref['memo_title']}")
         """
         data = dict(chat_params)
         data["stream"] = False
         response = await self._request("POST", "/api/v1/chat", json_data=data)
-        json_response: ChatResponse = response.json()
-        return json_response["response"]
+        return response.json()
 
     async def streamed_chat(
         self, chat_params: ChatRequest
@@ -446,23 +465,36 @@ class Skald:
         """
         Chat with your knowledge base using streaming for real-time responses.
 
-        Yields token events as they're generated, followed by a done event.
+        Yields token events as they're generated, optionally followed by a references
+        event (when enabled), and finally a done event with the chat_id.
 
         Args:
-            chat_params: Chat parameters including query and optional filters
+            chat_params: Chat parameters including query, optional filters, chat_id
+                        for conversation continuity, system_prompt for customization,
+                        and rag_config for advanced RAG settings
 
         Yields:
-            Stream events with type 'token' (contains content) or 'done'
+            Stream events with type:
+            - 'token': Contains response content chunks
+            - 'references': Contains JSON-encoded references mapping (when enabled)
+            - 'done': Signals completion and includes chat_id
 
         Raises:
             Exception: If the API request fails
 
         Example:
-            >>> async for event in skald.streamed_chat({"query": "What are our goals?"}):
+            >>> async for event in skald.streamed_chat({
+            ...     "query": "What are our goals?",
+            ...     "rag_config": {"references": {"enabled": True}}
+            ... }):
             ...     if event["type"] == "token":
             ...         print(event["content"], end="", flush=True)
+            ...     elif event["type"] == "references":
+            ...         import json
+            ...         refs = json.loads(event["content"])
+            ...         print(f"\\n\\nReferences: {refs}")
             ...     elif event["type"] == "done":
-            ...         print("\\nDone!")
+            ...         print(f"\\nChat ID: {event['chat_id']}")
         """
         data = dict(chat_params)
         data["stream"] = True

@@ -37,6 +37,7 @@ async def main():
             "query": "What were the main discussion points?"
         })
         print(response["response"])
+        print(f"Chat ID: {response['chat_id']}")
 
 asyncio.run(main())
 ```
@@ -221,7 +222,9 @@ for result in results["results"]:
 response = await skald.chat({
     "query": "What are our main product features?"
 })
-print(response["response"])  # Includes [[N]] citations
+print(response["response"])  # Answer with [[N]] citations
+print(response["chat_id"])   # Use for conversation continuity
+print(response["ok"])        # Success indicator
 
 # Streaming chat for real-time responses
 async for event in skald.streamed_chat({
@@ -230,7 +233,7 @@ async for event in skald.streamed_chat({
     if event["type"] == "token":
         print(event["content"], end="", flush=True)
     elif event["type"] == "done":
-        print("\nDone!")
+        print(f"\nChat ID: {event['chat_id']}")
 
 # Chat with filters
 response = await skald.chat({
@@ -244,13 +247,171 @@ response = await skald.chat({
         }
     ]
 })
+
+# Chat with custom system prompt
+response = await skald.chat({
+    "query": "Explain our API architecture",
+    "system_prompt": "You are a technical expert. Be precise and detailed."
+})
 ```
-## Search Methods
 
-- **`chunk_vector_search`**: Semantic search using AI embeddings (best for finding conceptually similar content)
-- **`title_contains`**: Case-insensitive substring match in titles
-- **`title_startswith`**: Case-insensitive prefix match in titles
+### Conversation Continuity
 
+Use `chat_id` to maintain context across multiple conversation turns:
+
+```python
+# First question
+response1 = await skald.chat({
+    "query": "What are our main product features?"
+})
+chat_id = response1["chat_id"]
+
+# Follow-up question with context
+response2 = await skald.chat({
+    "query": "Can you elaborate on the first one?",
+    "chat_id": chat_id  # Maintains conversation context
+})
+
+# Another follow-up
+response3 = await skald.chat({
+    "query": "What are the benefits of that approach?",
+    "chat_id": chat_id
+})
+```
+
+This also works with streaming:
+
+```python
+# Start streaming conversation
+chat_id = None
+async for event in skald.streamed_chat({
+    "query": "Tell me about our architecture"
+}):
+    if event["type"] == "token":
+        print(event["content"], end="", flush=True)
+    elif event["type"] == "done":
+        chat_id = event["chat_id"]
+
+# Continue the conversation
+async for event in skald.streamed_chat({
+    "query": "What are the pros and cons?",
+    "chat_id": chat_id
+}):
+    if event["type"] == "token":
+        print(event["content"], end="", flush=True)
+```
+
+### Advanced RAG Configuration
+
+Fine-tune the RAG (Retrieval-Augmented Generation) pipeline for optimal results:
+
+```python
+response = await skald.chat({
+    "query": "Explain our deployment process",
+    "rag_config": {
+        # Choose LLM provider
+        "llm_provider": "anthropic",  # Options: "openai", "anthropic", "groq"
+
+        # Enable query rewriting for vague queries
+        "query_rewrite": {
+            "enabled": True
+        },
+
+        # Configure vector search
+        "vector_search": {
+            "top_k": 100,                # Retrieve top 100 chunks (1-200)
+            "similarity_threshold": 0.7   # Only use chunks with 70%+ similarity (0.0-1.0)
+        },
+
+        # Enable reranking for better results
+        "reranking": {
+            "enabled": True,
+            "top_k": 20                   # Keep top 20 after reranking (1-100)
+        },
+
+        # Enable references/citations
+        "references": {
+            "enabled": True
+        }
+    }
+})
+```
+
+**RAG Configuration Options:**
+
+- **`llm_provider`** (`"openai"` | `"anthropic"` | `"groq"`): Choose the LLM to generate responses
+- **`query_rewrite`**: Reformulates vague queries for better retrieval
+  - `enabled` (bool): Enable query rewriting
+- **`vector_search`**: Controls initial retrieval
+  - `top_k` (int, 1-200): Number of chunks to retrieve
+  - `similarity_threshold` (float, 0.0-1.0): Minimum similarity score
+- **`reranking`**: Uses advanced models to rerank results
+  - `enabled` (bool): Enable reranking
+  - `top_k` (int, 1-100): Number of chunks to keep after reranking
+- **`references`**: Include source attribution
+  - `enabled` (bool): Add [[N]] citations and references mapping
+
+### References and Citations
+
+Enable references to get source attribution for chat responses:
+
+```python
+# Non-streaming with references
+response = await skald.chat({
+    "query": "What are our API authentication methods?",
+    "rag_config": {
+        "references": {
+            "enabled": True
+        }
+    }
+})
+
+# Response includes [[N]] citation markers
+print(response["response"])
+# Example: "We use API keys [[1]] and OAuth 2.0 [[2]] for authentication."
+
+# References map citation numbers to source memos
+if "references" in response:
+    for ref_num, ref_data in response["references"].items():
+        print(f"[{ref_num}]: {ref_data['memo_title']} ({ref_data['memo_uuid']})")
+# Output:
+# [1]: API Authentication Guide (550e8400-...)
+# [2]: OAuth 2.0 Implementation (660f9511-...)
+```
+
+With streaming:
+
+```python
+import json
+
+collected_references = None
+async for event in skald.streamed_chat({
+    "query": "How does our deployment pipeline work?",
+    "rag_config": {
+        "references": {"enabled": True}
+    }
+}):
+    if event["type"] == "token":
+        print(event["content"], end="", flush=True)
+    elif event["type"] == "references":
+        # References come as JSON-encoded string
+        collected_references = json.loads(event["content"])
+    elif event["type"] == "done":
+        print(f"\n\nChat ID: {event['chat_id']}")
+
+if collected_references:
+    for ref_num, ref_data in collected_references.items():
+        print(f"[{ref_num}]: {ref_data['memo_title']}")
+```
+
+You can then retrieve full memo details:
+
+```python
+# Get full memo from a reference
+first_ref = response["references"]["1"]
+full_memo = await skald.get_memo(first_ref["memo_uuid"])
+print(full_memo["content"])  # Full memo content
+```
 ## Filter Types
 
 ### Native Fields
@@ -285,14 +446,14 @@ Main client class for interacting with Skald.
 - `async create_memo_from_file(file_path: str, memo_data: Optional[MemoFileData] = None) -> CreateMemoResponse` - Upload a document file
 - `async get_memo(memo_id: str, id_type: IdType = "memo_uuid") -> Memo`
 - `async list_memos(params: Optional[ListMemosParams] = None) -> ListMemosResponse`
-- `async update_memo(memo_id: str, update_data: UpdateMemoData, id_type: IdType = "memo_uuid") -> UpdateMemoResponse`
-- `async delete_memo(memo_id: str, id_type: IdType = "memo_uuid") -> None`
+- `async update_memo(memo_id: str, update_data: UpdateMemoData, id_type: IdType = "memo_uuid") -> UpdateMemoResponse` - Returns `{"ok": bool}`
+- `async delete_memo(memo_id: str, id_type: IdType = "memo_uuid") -> UpdateMemoResponse` - Returns `{"ok": bool}`
 - `async check_memo_status(memo_id: str, id_type: IdType = "memo_uuid") -> MemoStatusResponse` - Check processing status
 
 #### Search and Query
-- `async search(search_params: SearchRequest) -> SearchResponse`
-- `async chat(chat_params: ChatRequest) -> ChatResponse`
-- `async streamed_chat(chat_params: ChatRequest) -> AsyncIterator[ChatStreamEvent]`
+- `async search(search_params: SearchRequest) -> SearchResponse` - Semantic vector search
+- `async chat(chat_params: ChatRequest) -> ChatResponse` - Returns response with chat_id, optional references
+- `async streamed_chat(chat_params: ChatRequest) -> AsyncIterator[ChatStreamEvent]` - Yields 'token', 'references', and 'done' events
 
 ## Type Definitions
 
@@ -300,17 +461,35 @@ The SDK includes comprehensive type definitions for all API operations. Import t
 
 ```python
 from skald_sdk.types import (
+    # Request types
     MemoData,
     MemoFileData,
     UpdateMemoData,
     SearchRequest,
     ChatRequest,
-    Filter,
-    MemoStatus,
+
+    # Response types
+    ChatResponse,
     MemoStatusResponse,
-    SearchMethod,
+
+    # RAG configuration
+    RAGConfig,
+    QueryRewriteConfig,
+    VectorSearchConfig,
+    RerankingConfig,
+    ReferencesConfig,
+    LLMProvider,
+
+    # References
+    MemoReference,
+    References,
+
+    # Filters and enums
+    Filter,
     FilterOperator,
     FilterType,
+    MemoStatus,
+    IdType,
 )
 ```
 

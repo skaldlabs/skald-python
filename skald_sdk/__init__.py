@@ -25,12 +25,19 @@ from skald_sdk.types import (
     Filter,
     IdType,
     MemoStatus,
-    SearchMethod,
     FilterOperator,
     FilterType,
+    LLMProvider,
+    RAGConfig,
+    QueryRewriteConfig,
+    VectorSearchConfig,
+    RerankingConfig,
+    ReferencesConfig,
+    MemoReference,
+    References,
 )
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 __all__ = [
     "Skald",
     "MemoData",
@@ -52,7 +59,14 @@ __all__ = [
     "Filter",
     "IdType",
     "MemoStatus",
-    "SearchMethod",
     "FilterOperator",
     "FilterType",
+    "LLMProvider",
+    "RAGConfig",
+    "QueryRewriteConfig",
+    "VectorSearchConfig",
+    "RerankingConfig",
+    "ReferencesConfig",
+    "MemoReference",
+    "References",
 ]
