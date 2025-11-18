@@ -133,7 +133,6 @@ async def main() -> None:
             print(f"  Summary: {full_memo['summary']}")
             print(f"  Created: {full_memo['created_at']}")
             print(f"  Tags: {full_memo.get('tags', [])}")
-            print(f"  Content Length: {full_memo['content_length']} characters")
             print()
 
         print("\n=== References with Advanced RAG Settings ===\n")
