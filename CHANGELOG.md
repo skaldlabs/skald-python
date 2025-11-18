@@ -33,33 +33,9 @@
 *System Prompt Customization:*
 - Added `system_prompt` field to `ChatRequest` for custom AI behavior
 
-**New Types:**
-- `LLMProvider`: Literal type for LLM provider selection
-- `RAGConfig`: Advanced RAG configuration options
-- `QueryRewriteConfig`: Query rewriting configuration
-- `VectorSearchConfig`: Vector search parameters
-- `RerankingConfig`: Reranking configuration
-- `ReferencesConfig`: References/citations configuration
-- `MemoReference`: Reference to a source memo
-- `References`: Dictionary mapping citation numbers to memos
-
 **Removed:**
 - `SearchMethod` type (obsolete - search method is no longer configurable)
 
-**Documentation:**
-- Added comprehensive README sections for RAG configuration, conversation continuity, and references
-- Added three new example files:
-  - `rag_configuration_example.py`: Demonstrates all RAG config options
-  - `conversation_continuity_example.py`: Multi-turn conversation examples
-  - `references_example.py`: Citations in streaming and non-streaming chat
-- Updated `chat_example.py` to show new features
-
-**Tests:**
-- Added comprehensive tests for RAG configuration
-- Added tests for conversation continuity (chat_id)
-- Added tests for references in non-streaming and streaming chat
-- Added tests for system_prompt customization
-- Updated existing tests for new return types
 
 ## 0.3.1
 
